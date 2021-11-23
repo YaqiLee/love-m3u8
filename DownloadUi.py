@@ -127,7 +127,7 @@ class Ui_Form(object):
 
     def retranslateUi(self, Form):
         _translate = QtCore.QCoreApplication.translate
-        Form.setWindowTitle(_translate("Form", "M3U8 Downloader"))
+        Form.setWindowTitle(_translate("Form", "I love m3u8"))
         self.groupBox1.setTitle(_translate("Form", "基础配置"))
         self.label.setText(_translate("Form", "URL："))
         self.label_2.setText(_translate("Form", "保存目录："))

@@ -1,10 +1,12 @@
 from contextlib import closing
+import subprocess
 from Crypto.Cipher import AES
 from multiprocessing.pool import ThreadPool
 import requests
 import os
 from ffmpy3 import FFmpeg
 import m3u8
+import shutil
 from DownUrlParse import UrlParse
 
 headers = {
@@ -46,13 +48,13 @@ class DownloadCtrl:
             self.worker.state.emit(self.downState['downloading'], self.temp_file_name)
             
             if os.path.exists(self.url_file_path):
-              print("删除urls.txt")
+              print("\n删除urls.txt")
               os.remove(self.url_file_path)
 
             for index in range(self.m3u8_obj_size):
                 if self.main.is_runing == False:
                   return
-                ts_file_name = "{}_{}.ts".format(self.temp_file_name, index)
+                ts_file_name = "{}_{}.ts".format(self.temp_file_name, f'{index}'.zfill(4))
                 ts_file_path = "{}/{}".format(self.file_dir, ts_file_name)
                 ts_url = self.get_valid_url(url, self.segments_uri[index])
                   
@@ -66,10 +68,13 @@ class DownloadCtrl:
                   self.save_url(ts_file_name)
             # 设置完成状态
             self.send_state(self.downState['finish'])
-            self.merge_ts_file(self.main.fileName, os.path.join(self.file_dir, os.path.pardir))
+            # TODO cmd合并异常执行ffmpeg合并
+            # windows 命令行执行合并
+            self.merge_ts_by_shell(self.main.fileName,self.file_dir)
             self.send_state(self.downState['clear'])
-            # shutil.rmtree(self.file_dir)
-            print("清理完成！")
+            # 清理临时文件
+            shutil.rmtree(self.file_dir)
+            print("\n清理完成！")
 
         except Exception as err:
             print(err)
@@ -171,16 +176,30 @@ class DownloadCtrl:
           print("解析url失败！")
           raise err
 
-    # 合并ts
-    def merge_ts_file(self, name, fileDir):
+    # ffmpeg合并ts
+    def merge_ts_by_ffmpeg(self, name, fileDir):
         try:
             # 转换文件格式
             merge_format = self.form['output_format']
-            FFmpeg(executable="ffmpeg.exe", inputs={"{}".format(self.url_file_path): '-err_detect ignore_err -f concat -safe 0 -threads 4 -noautorotate'},
-                        outputs={'{}/{}.{}'.format(fileDir, name, merge_format): '-hide_banner -y -vcodec h264_qsv'}).run()
+            output_path = os.path.join(fileDir, os.path.pardir)
+            FFmpeg(executable="ffmpeg.exe", inputs={"{}".format(fileDir): '-err_detect ignore_err -f concat -safe 0 -threads 4 -noautorotate'},
+                        outputs={'{}/{}.{}'.format(output_path, name, merge_format): '-hide_banner -y -c copy'}).run()
             print('合并完成！')
         except Exception as err:
             print("合并失败！");
+            raise err
+    # cmd合并
+    def merge_ts_by_shell(self, name, fileDir):
+        try:
+            # 转换文件格式
+            merge_format = self.form['output_format']
+            output_name = f'{name}.{merge_format}'
+            fileDir = fileDir.replace(r'\/'.replace(os.sep, ''), os.sep)
+            tsPath = os.path.join(fileDir, '*.ts')
+            output_path = os.path.join(fileDir, os.path.pardir, output_name)
+            subprocess.Popen(['copy', '/b', tsPath, output_path], shell=True)
+        except Exception as err:
+            print("合并出错")
             raise err
 
     def gen_file_dir(self, path):
