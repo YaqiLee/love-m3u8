@@ -40,13 +40,17 @@ class DownloadCtrl:
             self.temp_file_name = fileName
             # key解密
             self.cipher_box = self.get_cipher_box()
-            # 文件目录
-            self.file_dir = self.get_save_dir(self.temp_file_name)
-            # urls路径，用于合并分片文件
+            # 输出目录
+            self.save_path = self.formatPath(self.form['save_path'])
+            # 临时文件目录
+            self.file_dir = self.formatPath(f'{os.getcwd()}/output/{self.temp_file_name}')
+            # urls路径，用于ffmpeg合并分片文件
             self.url_file_path = "{}/urls.txt".format(self.file_dir)
-
             self.worker.state.emit(self.downState['downloading'], self.temp_file_name)
             
+            if os.path.exists(self.file_dir) == False:
+                os.makedirs(self.file_dir)
+
             if os.path.exists(self.url_file_path):
               print("\n删除urls.txt")
               os.remove(self.url_file_path)
@@ -70,7 +74,7 @@ class DownloadCtrl:
             self.send_state(self.downState['finish'])
             # TODO cmd合并异常执行ffmpeg合并
             # windows 命令行执行合并
-            self.merge_ts_by_shell(self.main.fileName,self.file_dir)
+            self.merge_ts_by_shell(self.main.fileName, self.save_path)
             self.send_state(self.downState['clear'])
             # 清理临时文件
             shutil.rmtree(self.file_dir)
@@ -125,16 +129,6 @@ class DownloadCtrl:
                 print(key.iv)
                 return key
 
-    def get_save_dir(self, fileName):
-        if self.form['save_path']:
-            path = self.form['save_path']
-        else:
-            path = './video'
-        path = path + '/' + fileName
-        # 文件夹不存在，则创建
-        if os.path.isdir(path) == False:
-            os.makedirs(path)
-        return path
     def down_file(self, params):
         try:
             url, filePath = params
@@ -194,10 +188,10 @@ class DownloadCtrl:
             # 转换文件格式
             merge_format = self.form['output_format']
             output_name = f'{name}.{merge_format}'
-            fileDir = fileDir.replace(r'\/'.replace(os.sep, ''), os.sep)
-            tsPath = os.path.join(fileDir, '*.ts')
-            output_path = os.path.join(fileDir, os.path.pardir, output_name)
-            subprocess.Popen(['copy', '/b', tsPath, output_path], shell=True)
+            tsPath = os.path.join(self.file_dir, '*.ts')
+            output_path = os.path.join(self.save_path, output_name)
+            proc = subprocess.Popen(['copy', '/b', tsPath, output_path], shell=True)
+            proc.communicate()
         except Exception as err:
             print("合并出错")
             raise err
@@ -219,3 +213,6 @@ class DownloadCtrl:
     @property
     def downState(self):
         return self.lang['downState']
+    
+    def formatPath(self, path):
+        return path.replace(r'\/'.replace(os.sep, ''), os.sep)
