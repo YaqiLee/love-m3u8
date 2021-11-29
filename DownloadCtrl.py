@@ -62,7 +62,6 @@ class DownloadCtrl:
                 ts_file_path = "{}/{}".format(self.file_dir, ts_file_name)
                 ts_url = self.get_valid_url(url, self.segments_uri[index])
                   
-                # TODO 自定义文件名
                 self.worker.progress.emit(index + 1, self.m3u8_obj_size)
 
                 with ThreadPool() as pool:
@@ -72,9 +71,7 @@ class DownloadCtrl:
                   self.save_url(ts_file_name)
             # 设置完成状态
             self.send_state(self.downState['finish'])
-            # TODO cmd合并异常执行ffmpeg合并
-            # windows 命令行执行合并
-            self.merge_ts_by_shell(self.main.fileName, self.save_path)
+            self.merge_ts(self.main.fileName)
             self.send_state(self.downState['clear'])
             # 清理临时文件
             shutil.rmtree(self.file_dir)
@@ -170,20 +167,27 @@ class DownloadCtrl:
           print("解析url失败！")
           raise err
 
+    def merge_ts(self, name):
+        try:
+            self.merge_ts_by_shell(name)
+        except:
+            self.merge_ts_by_ffmpeg(name)
+
     # ffmpeg合并ts
-    def merge_ts_by_ffmpeg(self, name, fileDir):
+    def merge_ts_by_ffmpeg(self, name):
         try:
             # 转换文件格式
             merge_format = self.form['output_format']
-            output_path = os.path.join(fileDir, os.path.pardir)
-            FFmpeg(executable="ffmpeg.exe", inputs={"{}".format(fileDir): '-err_detect ignore_err -f concat -safe 0 -threads 4 -noautorotate'},
-                        outputs={'{}/{}.{}'.format(output_path, name, merge_format): '-hide_banner -y -c copy'}).run()
+            output_name = f'{name}.{merge_format}'
+            output_path = os.path.join(self.save_path, output_name)
+            FFmpeg(executable="ffmpeg.exe", inputs={"{}/urls.txt".format(self.file_dir): '-err_detect ignore_err -f concat -safe 0 -threads 4 -noautorotate'},
+                        outputs={'{}'.format(output_path): '-hide_banner -y -c copy'}).run()
             print('合并完成！')
         except Exception as err:
             print("合并失败！");
             raise err
     # cmd合并
-    def merge_ts_by_shell(self, name, fileDir):
+    def merge_ts_by_shell(self, name):
         try:
             # 转换文件格式
             merge_format = self.form['output_format']

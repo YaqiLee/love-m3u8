@@ -24,13 +24,3 @@ class Worker(QObject):
           self.downCtrl.startDownload(url, name)
     self.state.emit(self.MainSelf.lang['downState']['ready'], '')
     self.finished.emit()
-
-  # def run(self):
-  #   i = 0
-  #   while self.MainSelf._is_runing:
-  #     print('I am runing')
-  #     self.progress.emit(str(i))
-  #     self.progress_ts.emit(str(i), "30")
-  #     # self.worker
-  #     i+=1
-  #     time.sleep(1)
